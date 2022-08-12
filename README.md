@@ -28,7 +28,8 @@ Requirements
     a) The request must be idempotent. It is possible that the production system could
         timeout or make multiple requests simultaneously and each request should return
         then same set of DevEUIs
-    b) The response should be a json body with an array of 100 elements {“deveuis”:
+   
+   b) The response should be a json body with an array of 100 elements {“deveuis”:
         [“FFA45722AA738240”,....]}
 
 LoRaWAN API
