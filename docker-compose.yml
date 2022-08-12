@@ -2,7 +2,7 @@
 services:
   postgres:
     image: postgres:latest
-    container_name: composepostgres
+    container_name: apppostgres
     environment:
         - POSTGRES_DB:${POSTGRES_DB}
         - POSTGRES_USER:${POSTGRES_USER}

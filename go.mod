@@ -1,4 +1,4 @@
-module learn
+module LoRaWAN
 
 go 1.19
 
