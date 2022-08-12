@@ -13,7 +13,6 @@ services:
       - progresDB:/var/lib/postgresql/data
     env_file:
       - .env
-
   redis:
     image: redis:alpine
     container_name: redis
@@ -26,6 +25,7 @@ services:
       - postgres 
     env_file:
      - .env
+
 volumes:
   progresDB:
   redisDB:

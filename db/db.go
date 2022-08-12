@@ -31,6 +31,7 @@ func ConnectDb() (DataBase, error) {
 	if err != nil {
 		return db, err
 	}
+	fmt.Println(url)
 	return db, nil
 }
 

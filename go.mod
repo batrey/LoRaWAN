@@ -6,6 +6,7 @@ require (
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/joho/godotenv v1.4.0
 	github.com/lib/pq v1.10.6
+
 )
 
 require (
