@@ -1,1 +1,1 @@
-# LoRaWAN
+# go-jwt-auth
