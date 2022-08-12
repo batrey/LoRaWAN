@@ -94,5 +94,4 @@ func (db DataBase) LogIn(users User) (bool, error) {
 	} else {
 		return true, nil
 	}
-
 }
