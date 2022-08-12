@@ -10,6 +10,7 @@ directly.
 
 Requirements
 1) CLI
+
     a)  The application must return every DevEUI that it registers with the LoRaWAN
         provider (e.g. if the application is killed it must wait for in-flight requests to finish
         otherwise we would have registered those DevEUIs but would not be using them)
