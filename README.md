@@ -23,6 +23,7 @@ Requirements
         10 requests in-flight, to avoid throttling)
 
 2) API
+
     a) The request must be idempotent. It is possible that the production system could
         timeout or make multiple requests simultaneously and each request should return
         then same set of DevEUIs
