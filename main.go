@@ -3,15 +3,31 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 
 	db "LoRaWAN/db"
+	device "LoRaWAN/handlers"
 
 	"github.com/go-redis/redis"
 	"github.com/joho/godotenv"
 	_ "github.com/joho/godotenv/autoload"
 	_ "github.com/lib/pq"
 )
+
+func middleWare(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		//check content type
+		contentType := r.Header.Get("Content-Type")
+		if contentType != "application/json" {
+			w.WriteHeader(http.StatusUnsupportedMediaType)
+			return
+		}
+		//TODO: check authorization token and user
+		next.ServeHTTP(w, r)
+
+	})
+}
 
 func main() {
 	//Load env file
@@ -38,5 +54,12 @@ func main() {
 	defer database.Conn.Close()
 
 	fmt.Println("PostgreSQL and Redis connected successfully...")
+
+	mux := http.NewServeMux()
+	deviceHandle := http.HandlerFunc(device.NewDevice(database, client))
+	mux.Handle("/device", middleWare(deviceHandle))
+	log.Println("Server started on port 8080")
+	err = http.ListenAndServe(":8080", mux)
+	log.Fatal(err)
 
 }

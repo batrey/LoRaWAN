@@ -14,3 +14,10 @@ CREATE TABLE IF NOT EXISTS "registered"(
     "user" varchar(255) NOT NULL,
     "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS "Idempotency"(
+    "id" UUID NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+    "Idempotency-key" varchar(255) UNIQUE NOT NULL,
+    "data" JSONB NOT NULL,
+    "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);

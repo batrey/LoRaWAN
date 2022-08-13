@@ -13,6 +13,10 @@ type DataBase struct {
 	Conn *sql.DB
 }
 
+type Deveuis struct {
+	Id []string `json:"Deveuis"`
+}
+
 type User struct {
 	UserName string `json:"username"`
 	Password string `json:"password"`
@@ -22,6 +26,7 @@ func ConnectDb() (DataBase, error) {
 	db := DataBase{}
 	var err error
 	url := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", os.Getenv("POSTGRES_USER"), os.Getenv("POSTGRES_PASSWORD"), os.Getenv("POSTGRES_HOST"), os.Getenv("POSTGRES_PORT"), os.Getenv("POSTGRES_DB"))
+	fmt.Println(url)
 	db.Conn, err = sql.Open("postgres", url)
 	if err != nil {
 		log.Fatalf("could not connect to postgres database: %v", err)
@@ -35,8 +40,16 @@ func ConnectDb() (DataBase, error) {
 	return db, nil
 }
 
-func (db DataBase) AddNewDevice(DevEUII string, status bool, user string) error {
-	_, err := db.Conn.Exec("INSERT INTO registered (DevEUI,status,user) VALUES ($1,$2,$3)", DevEUII, status, user)
+func (db DataBase) AddNewDevice(DevEUII string) error {
+	_, err := db.Conn.Exec("INSERT INTO registered (DevEUI,status) VALUES ($1,$2,$3)", DevEUII, "true")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (db DataBase) AddKey(key string, data Deveuis) error {
+	_, err := db.Conn.Exec("INSERT INTO Idempotency (IdempotencyKey,data) VALUES ($1,$2)", key, data)
 	if err != nil {
 		return err
 	}
@@ -52,31 +65,22 @@ func (db DataBase) GetDeviceStatus(DevEUII string) (bool, error) {
 	return status, nil
 }
 
-func (db DataBase) UpdateDevicesStatus(DevEUI string, user string, status bool) error {
-	_, err := db.Conn.Exec("UPDATE registered SET status=$1,user =$2 WHERE DevEUI=$3", status, user, DevEUI)
+func (db DataBase) UpdateDevicesStatus(DevEUI string, status bool) error {
+	_, err := db.Conn.Exec("UPDATE registered SET status=$1,user =$2 WHERE DevEUI=$3", status, DevEUI)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (db DataBase) GetDevicesStatus(DevEUI string, user string) (map[string]map[string]bool, error) {
-	var DevEUIIs map[string]map[string]bool
-
-	rows, err := db.Conn.Query("SELECT DevEUI,user,status FROM registered WHERE DevEUI=$1", DevEUI)
-	if err != nil {
-		return DevEUIIs, err
+func (db DataBase) GetDevicesStatus(DevEUI string) bool {
+	var status bool
+	err := db.Conn.QueryRow("SELECT status FROM registered WHERE DevEUI=$1", DevEUI).Scan(&status)
+	if err != nil && err != sql.ErrNoRows {
+		return false
+	} else {
+		return true
 	}
-	for rows.Next() {
-		id, operator := "", ""
-		var stat bool
-		err := rows.Scan(&id, &operator, &stat)
-		if err != nil {
-			return DevEUIIs, err
-		}
-		DevEUIIs[id][operator] = stat
-	}
-	return DevEUIIs, nil
 }
 
 func (db DataBase) AddUser(user User) error {
@@ -89,7 +93,7 @@ func (db DataBase) AddUser(user User) error {
 
 func (db DataBase) LogIn(users User) (bool, error) {
 	var user string
-	err := db.Conn.QueryRow("SELECT user FROM users WHERE password=ccrypt($1,gen_salt('bf',8))", users.Password).Scan(&user)
+	err := db.Conn.QueryRow("SELECT user FROM users WHERE password=ccrypt($1,gen_salt('bf',8)) AND username = $2", users.Password, users.UserName).Scan(&user)
 	if err != nil && err != sql.ErrNoRows {
 		return false, err
 	} else {
