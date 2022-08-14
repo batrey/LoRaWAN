@@ -27,7 +27,6 @@ func middleWare(next http.Handler) http.Handler {
 			w.WriteHeader(http.StatusUnsupportedMediaType)
 
 		}
-		//TODO: check authorization token and user
 		next.ServeHTTP(w, r)
 
 	})
