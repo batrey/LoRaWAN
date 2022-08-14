@@ -1,10 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	db "LoRaWAN/db"
 	device "LoRaWAN/handlers"
@@ -56,12 +60,34 @@ func main() {
 	fmt.Println("PostgreSQL and Redis connected successfully...")
 
 	mux := http.NewServeMux()
+	srv := &http.Server{
+		Addr:    ":8080",
+		Handler: mux,
+	}
 	deviceHandle := http.HandlerFunc(device.NewDevice(database, client))
 	testHandle := http.HandlerFunc(device.TestDevice(database, client))
 	mux.Handle("/device", middleWare(deviceHandle))
 	mux.Handle("/test", middleWare(testHandle))
+
+	done := make(chan os.Signal, 1)
+	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		if err = srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("listen: %s\n", err)
+		}
+	}()
 	log.Println("Server started on port 8080")
-	err = http.ListenAndServe(":8080", mux)
-	log.Fatal(err)
+	<-done
+	log.Println("Server Stopped on port 8080")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer func() {
+		// extra handling here
+		cancel()
+	}()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatalf("Server Shutdown Failed:%+v", err)
+	}
+	log.Print("Server Exited Properly")
 
 }

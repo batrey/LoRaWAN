@@ -33,6 +33,7 @@ func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 		key, ok := r.URL.Query()["id"]
 		if !ok || len(key[0]) < 1 {
 			w.WriteHeader(http.StatusBadRequest)
+			return
 		}
 
 		//check if id is redis key  if not create one
@@ -58,6 +59,7 @@ func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 		//check dev is smaller that 100
 		if len(dev.Deveuis) > 100 {
 			w.WriteHeader(http.StatusBadRequest)
+			return
 		}
 
 		ch := make(chan RespDeveuis, 10)
@@ -96,13 +98,13 @@ func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 func TestDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var ids []string
-		for i := 0; i <= 100; i++ {
+		for i := 0; i < 100; i++ {
 			ids = append(ids, RandStringBytesMaskImprSrcUnsafe(10))
 		}
-		fmt.Println("\n ids: %v \n", ids)
 
 		if len(ids) > 100 {
 			w.WriteHeader(http.StatusBadRequest)
+			return
 		}
 
 		ch := make(chan RespDeveuis, 10)
@@ -127,13 +129,10 @@ func TestDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 	}
 }
 func GetFromRedis(key string, r *redis.Client) (string, error) {
-	fmt.Println("In redis look up")
 	val, err := r.Get(key).Result()
 	if err != nil || val == "" {
 		return "", err
 	}
-	fmt.Println(fmt.Sprintf("\n Looking for key: %s in redis \n ", val))
-
 	return key, err
 }
 
@@ -175,7 +174,6 @@ func worker(id string, ch chan RespDeveuis, db db.DataBase, wg *sync.WaitGroup) 
 		} else if err != nil {
 			// TODO: error handling
 			response.Ids = append(response.Ids, DeveuisSingle{Id: id, Registered: false})
-			fmt.Println("HERE", response)
 			err = db.AddNewDevice(id, false)
 			if err != nil {
 				//TODO: handle error
