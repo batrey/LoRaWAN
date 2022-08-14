@@ -57,21 +57,23 @@ func (db DataBase) AddKey(key string) error {
 }
 
 func (db DataBase) GetKey(key string) (bool, error) {
-	var status bool
-	err := db.Conn.QueryRow("SELECT idempotencykey FROM idempotency WHERE idempotencykey=$1", key).Scan(&status)
-	if err != nil {
-		return false, err
+
+	err := db.Conn.QueryRow("SELECT idempotencykey FROM idempotency WHERE idempotencykey=$1", key).Scan()
+	if err != sql.ErrNoRows {
+		return true, err
 	}
-	return status, nil
+	return false, err
+
 }
 
 func (db DataBase) GetDeviceStatus(DevEUII string) (bool, error) {
 	var status bool
 	err := db.Conn.QueryRow("SELECT status FROM registered WHERE deveui=$1", DevEUII).Scan(&status)
 	if err != nil {
-		return false, err
+		return status, err
 	}
-	return status, nil
+	fmt.Println("STATUS HERE", status)
+	return status, err
 }
 
 func (db DataBase) UpdateDevicesStatus(DevEUI string, status bool) error {
@@ -81,21 +83,3 @@ func (db DataBase) UpdateDevicesStatus(DevEUI string, status bool) error {
 	}
 	return nil
 }
-
-// func (db DataBase) AddUser(user User) error {
-// 	_, err := db.Conn.Exec("INSERT INTO users (username,password) VALUES ($1,crypt($2,gen_salt('bf',8)))", user.UserName, user.Password)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	return nil
-// }
-
-// func (db DataBase) LogIn(users User) (bool, error) {
-// 	var user string
-// 	err := db.Conn.QueryRow("SELECT user FROM users WHERE password=ccrypt($1,gen_salt('bf',8)) AND username = $2", users.Password, users.UserName).Scan(&user)
-// 	if err != nil && err != sql.ErrNoRows {
-// 		return false, err
-// 	} else {
-// 		return true, nil
-// 	}
-// }

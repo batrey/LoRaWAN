@@ -4,6 +4,7 @@ import (
 	"LoRaWAN/app/db"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
@@ -38,6 +39,8 @@ func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 
 		//check if id is redis key  if not create one
 		keyExist, _ := db.GetKey(key[0])
+		fmt.Println(keyExist)
+		fmt.Println()
 		val, _ := GetFromRedis(key[0], client)
 		if val == key[0] || keyExist {
 			w.Header().Set("Content-Type", "application/json")
