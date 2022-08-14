@@ -1,3 +1,45 @@
+Setup:
+docker-compose up
+make migrateup
+cd app
+go run main.go
+
+
+Please also see Lorawan.postman_collection.json 
+
+Endpoints:
+
+Test manually 
+
+http//:localhost:8080/device?id=xxxxx
+
+Example Payload:
+```  {
+     "deveuis": [
+        "4588485",
+        "895843",
+        "4588ereer485",
+        "8958355erer43",
+        "4588324485",
+        "895843242343",
+        "411123245",
+        "89522345673",
+        "45884877875",
+        "895667843",
+        "458343285",
+        "89583242343"
+ ]}
+ ```
+
+Automatic Test
+
+http//:localhost:8080/test
+
+
+
+
+
+
 Write a program that can be run by the technicians on the production line just before assembling
 the sensor units. They will note the output and feed it into the production system. The
 technicians can sometimes be impatient and may kill the process if it takes too long.

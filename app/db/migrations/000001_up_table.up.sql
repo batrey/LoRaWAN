@@ -14,9 +14,8 @@ CREATE TABLE IF NOT EXISTS "registered"(
     "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS "Idempotency"(
+CREATE TABLE IF NOT EXISTS "idempotency"(
     "id" UUID NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
-    "IdempotencyKey" varchar(255) UNIQUE NOT NULL,
-    "data" JSONB NOT NULL,
+    "idempotencykey" varchar(255) UNIQUE NOT NULL,
     "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );

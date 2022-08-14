@@ -33,15 +33,17 @@ func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 		key, ok := r.URL.Query()["id"]
 		if !ok || len(key[0]) < 1 {
 			w.WriteHeader(http.StatusBadRequest)
-			return
+
 		}
 
 		//check if id is redis key  if not create one
-		val, err := GetFromRedis(key[0], client)
-		if val == key[0] || err != nil {
+		val, _ := GetFromRedis(key[0], client)
+		fmt.Println(val, "dfdefd", key)
+		if val == key[0] {
 			w.Header().Set("Content-Type", "application/json")
 			w.Header().Add("Conflict", "Devices already registered")
 			w.WriteHeader(http.StatusConflict)
+			fmt.Println("GOT HERE")
 			return
 		}
 
@@ -51,13 +53,14 @@ func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 		decode := json.NewDecoder(r.Body)
 		decode.DisallowUnknownFields()
 		var dev Deveuis
-		err = decode.Decode(&dev)
+		err := decode.Decode(&dev)
 		if err != nil {
 			log.Fatalf("Unable to decode json err:%s", err)
 		}
 
 		//check dev is smaller that 100
 		if len(dev.Deveuis) > 100 {
+			fmt.Println(len(dev.Deveuis))
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -75,12 +78,12 @@ func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 		}
 		close(ch)
 
-		//TODO stor in redis
-		err = SetRedis(key[0], dev, client)
+		err = SetRedis(key[0], response, client)
 		if err != nil {
 			log.Fatalf("Unable to save key to redis err: %s", err)
 		}
-		err = db.AddKey(key[0], dev)
+
+		err = db.AddKey(key[0])
 		if err != nil {
 			log.Fatalf("Unable to add  key to Redis err:%s", err)
 		}
@@ -131,15 +134,16 @@ func TestDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 func GetFromRedis(key string, r *redis.Client) (string, error) {
 	val, err := r.Get(key).Result()
 	if err != nil || val == "" {
-		return "", err
+		fmt.Println("GOT HERE!!!!")
+		return " ", err
 	}
 	return key, err
 }
 
-func SetRedis(key string, val interface{}, r *redis.Client) error {
-	val, _ = json.Marshal(val)
-	_, err := r.Set(key, val, 0).Result()
+func SetRedis(key string, val RespDeveuis, r *redis.Client) error {
+	_, err := r.Set(key, nil, 0).Result()
 	if err != nil {
+		fmt.Println(err)
 		return err
 	}
 	return nil

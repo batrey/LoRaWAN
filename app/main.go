@@ -25,7 +25,7 @@ func middleWare(next http.Handler) http.Handler {
 		contentType := r.Header.Get("Content-Type")
 		if contentType != "application/json" {
 			w.WriteHeader(http.StatusUnsupportedMediaType)
-			return
+
 		}
 		//TODO: check authorization token and user
 		next.ServeHTTP(w, r)

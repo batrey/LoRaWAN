@@ -1,0 +1,76 @@
+{
+	"info": {
+		"_postman_id": "4e1a1d98-1ff7-457b-ab50-7e38ce69ef5d",
+		"name": "Lorawan",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "22822430"
+	},
+	"item": [
+		{
+			"name": "Manual",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": " {\n     \"deveuis\": [\n                \"1232455\",\n                \"1243453545\",\n                \"098765weery\"\n ]}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8080/device?id=notseenthis343343",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"device"
+					],
+					"query": [
+						{
+							"key": "id",
+							"value": "notseenthis343343"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Test devices",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": " {\n     \"deveuis\": [\n        \"4588485\",\n        \"895843\",\n        \"4588ereer485\",\n        \"8958355erer43\",\n        \"4588324485\",\n        \"895843242343\",\n        \"411123245\",\n        \"89522345673\",\n        \"45884877875\",\n        \"895667843\",\n        \"458343285\",\n        \"89583242343\"\n ]}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8080/test",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"test"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

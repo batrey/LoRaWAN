@@ -48,8 +48,8 @@ func (db DataBase) AddNewDevice(DevEUII string, status bool) error {
 	return nil
 }
 
-func (db DataBase) AddKey(key string, data interface{}) error {
-	_, err := db.Conn.Exec("INSERT INTO Idempotency (IdempotencyKey,data) VALUES ($1,$2)", key, data)
+func (db DataBase) AddKey(key string) error {
+	_, err := db.Conn.Exec("INSERT INTO idempotency (IdempotencyKey) VALUES ($1)", key)
 	if err != nil {
 		return err
 	}
