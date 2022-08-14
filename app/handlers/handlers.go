@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"LoRaWAN/db"
+	"LoRaWAN/app/db"
 	"bytes"
 	"encoding/json"
 	"fmt"

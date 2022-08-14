@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	db "LoRaWAN/db"
-	device "LoRaWAN/handlers"
+	db "LoRaWAN/app/db"
+	device "LoRaWAN/app/handlers"
 
 	"github.com/go-redis/redis"
 	"github.com/joho/godotenv"
