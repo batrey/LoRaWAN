@@ -49,11 +49,20 @@ func (db DataBase) AddNewDevice(DevEUII string, status bool) error {
 }
 
 func (db DataBase) AddKey(key string) error {
-	_, err := db.Conn.Exec("INSERT INTO idempotency (IdempotencyKey) VALUES ($1)", key)
+	_, err := db.Conn.Exec("INSERT INTO idempotency (idempotencykey) VALUES ($1)", key)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func (db DataBase) GetKey(key string) (bool, error) {
+	var status bool
+	err := db.Conn.QueryRow("SELECT idempotencykey FROM idempotency WHERE idempotencykey=$1", key).Scan(&status)
+	if err != nil {
+		return false, err
+	}
+	return status, nil
 }
 
 func (db DataBase) GetDeviceStatus(DevEUII string) (bool, error) {

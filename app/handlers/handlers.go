@@ -4,7 +4,6 @@ import (
 	"LoRaWAN/app/db"
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
@@ -31,23 +30,22 @@ func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		//check if there is a key
 		key, ok := r.URL.Query()["id"]
+
 		if !ok || len(key[0]) < 1 {
 			w.WriteHeader(http.StatusBadRequest)
 
 		}
 
 		//check if id is redis key  if not create one
+		keyExist, _ := db.GetKey(key[0])
 		val, _ := GetFromRedis(key[0], client)
-		fmt.Println(val, "dfdefd", key)
-		if val == key[0] {
+		if val == key[0] || keyExist {
 			w.Header().Set("Content-Type", "application/json")
 			w.Header().Add("Conflict", "Devices already registered")
 			w.WriteHeader(http.StatusConflict)
-			fmt.Println("GOT HERE")
 			return
 		}
 
-		fmt.Println("\n checked Redis \n ")
 		//get body
 		r.Body = http.MaxBytesReader(w, r.Body, 1048576)
 		decode := json.NewDecoder(r.Body)
@@ -60,7 +58,6 @@ func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 
 		//check dev is smaller that 100
 		if len(dev.Deveuis) > 100 {
-			fmt.Println(len(dev.Deveuis))
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -134,8 +131,7 @@ func TestDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 func GetFromRedis(key string, r *redis.Client) (string, error) {
 	val, err := r.Get(key).Result()
 	if err != nil || val == "" {
-		fmt.Println("GOT HERE!!!!")
-		return " ", err
+		return "", err
 	}
 	return key, err
 }
@@ -143,7 +139,6 @@ func GetFromRedis(key string, r *redis.Client) (string, error) {
 func SetRedis(key string, val RespDeveuis, r *redis.Client) error {
 	_, err := r.Set(key, nil, 0).Result()
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
 	return nil
