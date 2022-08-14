@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"flag"
+	"log"
 	"net/http"
 	"os"
 	"sync"
@@ -12,8 +13,15 @@ import (
 	"github.com/go-redis/redis"
 )
 
-type Deveuis struct {
+type Reg struct {
 	Id []string `json:"Deveuis"`
+}
+type Deveuis struct {
+	Id         string `json:"Deveuis"`
+	Registered bool   `json:"registered"`
+}
+type RespDeveuis struct {
+	Ids []Deveuis `json:"Deveuis"`
 }
 
 func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
@@ -39,7 +47,7 @@ func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 		r.Body = http.MaxBytesReader(w, r.Body, 1048576)
 		decode := json.NewDecoder(r.Body)
 		decode.DisallowUnknownFields()
-		var dev Deveuis
+		var dev Reg
 		err := decode.Decode(&dev)
 		if err != nil {
 			//TODO handle error
@@ -55,7 +63,7 @@ func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 
 		results := make(chan string)
 		var wg sync.WaitGroup
-
+		var response RespDeveuis
 		for i := 0; i < *parallel; i++ {
 			wg.Add(1)
 			go func() {
@@ -63,9 +71,22 @@ func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 				for _, id := range dev.Id {
 					status, _ := db.GetDeviceStatus(id)
 					if !status {
-						MakeRequestLorawan(id)
-						db.AddNewDevice(id)
-						// TODO: error handling
+						success, err := MakeRequestLorawan(id)
+						if success == http.StatusOK {
+							err = db.AddNewDevice(id, true)
+							if err != nil {
+								//TODO: handle error
+							}
+							response.Ids = append(response.Ids, Deveuis{Id: id, Registered: true})
+						} else if err != nil {
+							// TODO: error handling
+							response.Ids = append(response.Ids, Deveuis{Id: id, Registered: false})
+							err = db.AddNewDevice(id, false)
+							if err != nil {
+								//TODO: handle error
+							}
+						}
+
 					}
 				}
 
@@ -81,6 +102,18 @@ func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 		if err != nil {
 			//TODO:Error handling
 		}
+		err = db.AddKey(key[0], dev.Id)
+		if err != nil {
+			//TODO add error handling
+		}
+
+		jsonResp, err := json.Marshal(response)
+		if err != nil {
+			log.Fatalf("Error marshalling json Err:%s", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(jsonResp)
 	}
 }
 
@@ -92,7 +125,7 @@ func GetFromRedis(key string, r *redis.Client) (string, error) {
 	return val, err
 }
 
-func SetRedis(key string, val Deveuis, r *redis.Client) error {
+func SetRedis(key string, val Reg, r *redis.Client) error {
 	_, err := r.Set(key, val, 0).Result()
 	if err != nil {
 		return err
@@ -100,7 +133,7 @@ func SetRedis(key string, val Deveuis, r *redis.Client) error {
 	return nil
 }
 
-func MakeRequestLorawan(Deveuis string) error {
+func MakeRequestLorawan(Deveuis string) (int, error) {
 	url := os.Getenv("LORAWAN_URL")
 
 	req, _ := http.NewRequest("POST", url, bytes.NewBuffer([]byte(Deveuis)))
@@ -108,8 +141,9 @@ func MakeRequestLorawan(Deveuis string) error {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return resp.StatusCode, err
 	}
+
 	defer resp.Body.Close()
-	return nil
+	return resp.StatusCode, err
 }
