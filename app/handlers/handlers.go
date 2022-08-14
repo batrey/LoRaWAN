@@ -38,7 +38,7 @@ func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 
 		//check if id is redis key  if not create one
 		val, err := GetFromRedis(key[0], client)
-		if val == key[0] {
+		if val == key[0] || err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.Header().Add("Conflict", "Devices already registered")
 			w.WriteHeader(http.StatusConflict)
@@ -53,7 +53,7 @@ func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 		var dev Deveuis
 		err = decode.Decode(&dev)
 		if err != nil {
-			//TODO handle error
+			log.Fatalf("Unable to decode json err:%s", err)
 		}
 
 		//check dev is smaller that 100
@@ -82,7 +82,7 @@ func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 		}
 		err = db.AddKey(key[0], dev)
 		if err != nil {
-			//TODO add error handling
+			log.Fatalf("Unable to add  key to Redis err:%s", err)
 		}
 
 		jsonResp, err := json.Marshal(response)
@@ -164,22 +164,30 @@ func worker(id string, ch chan RespDeveuis, db db.DataBase, wg *sync.WaitGroup) 
 	var response RespDeveuis
 	status, _ := db.GetDeviceStatus(id)
 	if !status {
-		success, err := MakeRequestLorawan(id)
+		success, _ := MakeRequestLorawan(id)
 		if success == http.StatusOK {
-			err = db.AddNewDevice(id, true)
+			err := db.AddNewDevice(id, true)
 			if err != nil {
-				//TODO: handle error
+				log.Fatalf("Unable to add Devuce to the Database err:%s", err)
 			}
 			response.Ids = append(response.Ids, DeveuisSingle{Id: id, Registered: true})
-		} else if err != nil {
-			// TODO: error handling
+		} else if success != http.StatusOK {
 			response.Ids = append(response.Ids, DeveuisSingle{Id: id, Registered: false})
-			err = db.AddNewDevice(id, false)
+			err := db.AddNewDevice(id, false)
 			if err != nil {
-				//TODO: handle error
+				log.Fatalf("Unable to add Devuce to the Database err:%s", err)
 			}
 		}
 
+	} else {
+		success, _ := MakeRequestLorawan(id)
+		if success == http.StatusOK {
+			err := db.UpdateDevicesStatus(id, true)
+			if err != nil {
+				log.Fatalf("Unable to add Devuce to the Database err:%s", err)
+			}
+			response.Ids = append(response.Ids, DeveuisSingle{Id: id, Registered: true})
+		}
 	}
 	ch <- response
 	wg.Done()

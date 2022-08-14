@@ -27,7 +27,6 @@ func ConnectDb() (DataBase, error) {
 	db := DataBase{}
 	var err error
 	url := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", os.Getenv("POSTGRES_USER"), os.Getenv("POSTGRES_PASSWORD"), os.Getenv("POSTGRES_HOST"), os.Getenv("POSTGRES_PORT"), os.Getenv("POSTGRES_DB"))
-	fmt.Println(url)
 	db.Conn, err = sql.Open("postgres", url)
 	if err != nil {
 		log.Fatalf("could not connect to postgres database: %v", err)
@@ -42,7 +41,6 @@ func ConnectDb() (DataBase, error) {
 }
 
 func (db DataBase) AddNewDevice(DevEUII string, status bool) error {
-	fmt.Println("\n ADD NEW DEVICE \n")
 	_, err := db.Conn.Exec("INSERT INTO registered (deveui,status) VALUES ($1,$2)", DevEUII, status)
 	if err != nil {
 		return err
@@ -59,11 +57,9 @@ func (db DataBase) AddKey(key string, data interface{}) error {
 }
 
 func (db DataBase) GetDeviceStatus(DevEUII string) (bool, error) {
-	fmt.Println("\n Get Device Status \n")
 	var status bool
 	err := db.Conn.QueryRow("SELECT status FROM registered WHERE deveui=$1", DevEUII).Scan(&status)
 	if err != nil {
-		fmt.Println(err)
 		return false, err
 	}
 	return status, nil
