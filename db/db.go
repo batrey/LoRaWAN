@@ -42,14 +42,15 @@ func ConnectDb() (DataBase, error) {
 }
 
 func (db DataBase) AddNewDevice(DevEUII string, status bool) error {
-	_, err := db.Conn.Exec("INSERT INTO registered (DevEUI,status) VALUES ($1,$2)", DevEUII, status)
+	fmt.Println("\n ADD NEW DEVICE \n")
+	_, err := db.Conn.Exec("INSERT INTO registered (deveui,status) VALUES ($1,$2)", DevEUII, status)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (db DataBase) AddKey(key string, data []string) error {
+func (db DataBase) AddKey(key string, data interface{}) error {
 	_, err := db.Conn.Exec("INSERT INTO Idempotency (IdempotencyKey,data) VALUES ($1,$2)", key, data)
 	if err != nil {
 		return err
@@ -58,16 +59,18 @@ func (db DataBase) AddKey(key string, data []string) error {
 }
 
 func (db DataBase) GetDeviceStatus(DevEUII string) (bool, error) {
+	fmt.Println("\n Get Device Status \n")
 	var status bool
-	err := db.Conn.QueryRow("SELECT status FROM registered WHERE DevEUI=$1", DevEUII).Scan(&status)
+	err := db.Conn.QueryRow("SELECT status FROM registered WHERE deveui=$1", DevEUII).Scan(&status)
 	if err != nil {
+		fmt.Println(err)
 		return false, err
 	}
 	return status, nil
 }
 
 func (db DataBase) UpdateDevicesStatus(DevEUI string, status bool) error {
-	_, err := db.Conn.Exec("UPDATE registered SET status=$1,user =$2 WHERE DevEUI=$3", status, DevEUI)
+	_, err := db.Conn.Exec("UPDATE registered SET status=$1 WHERE deveui=$2", status, DevEUI)
 	if err != nil {
 		return err
 	}

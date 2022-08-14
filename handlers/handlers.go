@@ -4,24 +4,27 @@ import (
 	"LoRaWAN/db"
 	"bytes"
 	"encoding/json"
-	"flag"
+	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"sync"
+	"time"
+	"unsafe"
 
 	"github.com/go-redis/redis"
 )
 
-type Reg struct {
-	Id []string `json:"Deveuis"`
-}
 type Deveuis struct {
+	Deveuis []string `json:"deveuis”`
+}
+type DeveuisSingle struct {
 	Id         string `json:"Deveuis"`
 	Registered bool   `json:"registered"`
 }
 type RespDeveuis struct {
-	Ids []Deveuis `json:"Deveuis"`
+	Ids []DeveuisSingle `json:"Deveuis"`
 }
 
 func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
@@ -33,76 +36,49 @@ func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 		}
 
 		//check if id is redis key  if not create one
-		val, _ := GetFromRedis(key[0], client)
-		if val != "" {
-			resp, err := json.Marshal(val)
-			if err != nil {
-				//TODO: handle error
-			}
+		val, err := GetFromRedis(key[0], client)
+		if val == key[0] {
 			w.Header().Set("Content-Type", "application/json")
+			w.Header().Add("Conflict", "Devices already registered")
 			w.WriteHeader(http.StatusConflict)
-			json.NewEncoder(w).Encode(resp)
+			return
 		}
+
+		fmt.Println("\n checked Redis \n ")
 		//get body
 		r.Body = http.MaxBytesReader(w, r.Body, 1048576)
 		decode := json.NewDecoder(r.Body)
 		decode.DisallowUnknownFields()
-		var dev Reg
-		err := decode.Decode(&dev)
+		var dev Deveuis
+		err = decode.Decode(&dev)
 		if err != nil {
 			//TODO handle error
 		}
+
 		//check dev is smaller that 100
-		if len(dev.Id) > 100 {
+		if len(dev.Deveuis) > 100 {
 			w.WriteHeader(http.StatusBadRequest)
 		}
 
-		//make request to LoRaWABN server
-		parallel := flag.Int("parallel", 10, "max parallel requests allowed")
-		flag.Parse()
-
-		results := make(chan string)
+		ch := make(chan RespDeveuis, 10)
 		var wg sync.WaitGroup
 		var response RespDeveuis
-		for i := 0; i < *parallel; i++ {
+		var tmp RespDeveuis
+		for _, id := range dev.Deveuis {
 			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				for _, id := range dev.Id {
-					status, _ := db.GetDeviceStatus(id)
-					if !status {
-						success, err := MakeRequestLorawan(id)
-						if success == http.StatusOK {
-							err = db.AddNewDevice(id, true)
-							if err != nil {
-								//TODO: handle error
-							}
-							response.Ids = append(response.Ids, Deveuis{Id: id, Registered: true})
-						} else if err != nil {
-							// TODO: error handling
-							response.Ids = append(response.Ids, Deveuis{Id: id, Registered: false})
-							err = db.AddNewDevice(id, false)
-							if err != nil {
-								//TODO: handle error
-							}
-						}
-
-					}
-				}
-
-			}()
-		}
-		go func() {
+			go worker(id, ch, db, &wg)
 			wg.Wait()
-			close(results)
-		}()
+			tmp = <-ch
+			response.Ids = append(response.Ids, tmp.Ids...)
+		}
+		close(ch)
 
 		//TODO stor in redis
 		err = SetRedis(key[0], dev, client)
 		if err != nil {
-			//TODO:Error handling
+			log.Fatalf("Unable to save key to redis err: %s", err)
 		}
-		err = db.AddKey(key[0], dev.Id)
+		err = db.AddKey(key[0], dev)
 		if err != nil {
 			//TODO add error handling
 		}
@@ -117,15 +93,52 @@ func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 	}
 }
 
+func TestDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var ids []string
+		for i := 0; i <= 100; i++ {
+			ids = append(ids, RandStringBytesMaskImprSrcUnsafe(10))
+		}
+		fmt.Println("\n ids: %v \n", ids)
+
+		if len(ids) > 100 {
+			w.WriteHeader(http.StatusBadRequest)
+		}
+
+		ch := make(chan RespDeveuis, 10)
+		var wg sync.WaitGroup
+		var response RespDeveuis
+		var tmp RespDeveuis
+		for _, id := range ids {
+			wg.Add(1)
+			go worker(id, ch, db, &wg)
+			wg.Wait()
+			tmp = <-ch
+			response.Ids = append(response.Ids, tmp.Ids...)
+		}
+		close(ch)
+		jsonResp, err := json.Marshal(response)
+		if err != nil {
+			log.Fatalf("Error marshalling json Err:%s", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(jsonResp)
+	}
+}
 func GetFromRedis(key string, r *redis.Client) (string, error) {
+	fmt.Println("In redis look up")
 	val, err := r.Get(key).Result()
-	if err != nil {
+	if err != nil || val == "" {
 		return "", err
 	}
-	return val, err
+	fmt.Println(fmt.Sprintf("\n Looking for key: %s in redis \n ", val))
+
+	return key, err
 }
 
-func SetRedis(key string, val Reg, r *redis.Client) error {
+func SetRedis(key string, val interface{}, r *redis.Client) error {
+	val, _ = json.Marshal(val)
 	_, err := r.Set(key, val, 0).Result()
 	if err != nil {
 		return err
@@ -135,9 +148,9 @@ func SetRedis(key string, val Reg, r *redis.Client) error {
 
 func MakeRequestLorawan(Deveuis string) (int, error) {
 	url := os.Getenv("LORAWAN_URL")
-
 	req, _ := http.NewRequest("POST", url, bytes.NewBuffer([]byte(Deveuis)))
 	req.Header.Set("Content-Type", "application/json")
+
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -146,4 +159,56 @@ func MakeRequestLorawan(Deveuis string) (int, error) {
 
 	defer resp.Body.Close()
 	return resp.StatusCode, err
+}
+
+func worker(id string, ch chan RespDeveuis, db db.DataBase, wg *sync.WaitGroup) {
+	var response RespDeveuis
+	status, _ := db.GetDeviceStatus(id)
+	if !status {
+		success, err := MakeRequestLorawan(id)
+		if success == http.StatusOK {
+			err = db.AddNewDevice(id, true)
+			if err != nil {
+				//TODO: handle error
+			}
+			response.Ids = append(response.Ids, DeveuisSingle{Id: id, Registered: true})
+		} else if err != nil {
+			// TODO: error handling
+			response.Ids = append(response.Ids, DeveuisSingle{Id: id, Registered: false})
+			fmt.Println("HERE", response)
+			err = db.AddNewDevice(id, false)
+			if err != nil {
+				//TODO: handle error
+			}
+		}
+
+	}
+	ch <- response
+	wg.Done()
+}
+
+const (
+	letterIdxBits = 6                    // 6 bits to represent a letter index
+	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
+	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
+	letterBytes   = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+)
+
+func RandStringBytesMaskImprSrcUnsafe(n int) string {
+	b := make([]byte, n)
+	var src = rand.NewSource(time.Now().UnixNano())
+	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
+	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
+		if remain == 0 {
+			cache, remain = src.Int63(), letterIdxMax
+		}
+		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
+			b[i] = letterBytes[idx]
+			i--
+		}
+		cache >>= letterIdxBits
+		remain--
+	}
+
+	return *(*string)(unsafe.Pointer(&b))
 }

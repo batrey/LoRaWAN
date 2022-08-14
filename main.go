@@ -57,7 +57,9 @@ func main() {
 
 	mux := http.NewServeMux()
 	deviceHandle := http.HandlerFunc(device.NewDevice(database, client))
+	testHandle := http.HandlerFunc(device.TestDevice(database, client))
 	mux.Handle("/device", middleWare(deviceHandle))
+	mux.Handle("/test", middleWare(testHandle))
 	log.Println("Server started on port 8080")
 	err = http.ListenAndServe(":8080", mux)
 	log.Fatal(err)
