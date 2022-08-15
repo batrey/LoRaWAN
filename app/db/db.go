@@ -67,12 +67,12 @@ func (db DataBase) AddKey(key string) error {
 
 // Gets idempotency key  stored in DB
 func (db DataBase) GetKey(key string) (bool, error) {
-	var status bool
+	var status string
 	err := db.Conn.QueryRow("SELECT key FROM idempotency WHERE key=$1", key).Scan(&status)
 	if err != sql.ErrNoRows {
-		return status, err
+		return true, err
 	}
-	return status, err
+	return false, err
 
 }
 
