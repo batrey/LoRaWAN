@@ -126,6 +126,7 @@ func TestDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 			response.Ids = append(response.Ids, tmp.Ids...)
 		}
 		close(ch)
+
 		w.WriteHeader(http.StatusOK)
 		encoder := json.NewEncoder(w)
 		encoder.SetEscapeHTML(false)
