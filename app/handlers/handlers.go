@@ -72,10 +72,10 @@ func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 		for _, id := range dev.DevEuis {
 			wg.Add(1)
 			go worker(id, ch, db, &wg)
-			wg.Wait()
 			tmp = <-ch
 			response.Ids = append(response.Ids, tmp.Ids...)
 		}
+		wg.Wait()
 		close(ch)
 
 		err = SetRedis(key[0], response, client)
@@ -121,10 +121,10 @@ func TestDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 		for _, id := range ids {
 			wg.Add(1)
 			go worker(id, ch, db, &wg)
-			wg.Wait()
 			tmp = <-ch
 			response.Ids = append(response.Ids, tmp.Ids...)
 		}
+		wg.Wait()
 		close(ch)
 
 		w.WriteHeader(http.StatusOK)
