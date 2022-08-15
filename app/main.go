@@ -19,17 +19,6 @@ import (
 	_ "github.com/lib/pq"
 )
 
-// RecoverWith500 returns a 500 for unexpected errors on handlers
-// func RecoverWith500(w http.ResponseWriter) {
-// 	if r := recover(); r != nil {
-// 		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-// 		w.WriteHeader(http.StatusInternalServerError)
-// 		json.NewEncoder(w).Encode(map[string]interface{}{
-// 			Code: http.StatusInternalServerError,
-// 			Text: http.StatusText(http.StatusInternalServerError)})
-// 	}
-// }
-
 func middleWare(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		//check content type

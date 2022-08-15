@@ -28,6 +28,14 @@ type RespDeveuis struct {
 	Ids []DeveuisSingle `json:"deveuis"`
 }
 
+const (
+	letterIdxBits = 6                    // 6 bits to represent a letter index
+	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
+	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
+	letterBytes   = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+)
+
+// Handler that seeds New Devices
 func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		//check if there is a key
@@ -102,6 +110,7 @@ func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 	}
 }
 
+// Generates 100  New Devices
 func TestDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var ids []string
@@ -136,6 +145,8 @@ func TestDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 		}
 	}
 }
+
+// Check to see if idempotency key
 func GetFromRedis(key string, r *redis.Client) (string, error) {
 	val, err := r.Get(key).Result()
 	if err != nil || val == "" {
@@ -144,6 +155,7 @@ func GetFromRedis(key string, r *redis.Client) (string, error) {
 	return key, err
 }
 
+// Sets idempotency key
 func SetRedis(key string, val RespDeveuis, r *redis.Client) error {
 	_, err := r.Set(key, nil, 0).Result()
 	if err != nil {
@@ -152,6 +164,7 @@ func SetRedis(key string, val RespDeveuis, r *redis.Client) error {
 	return nil
 }
 
+// Makes Request to Lorawan Server
 func MakeRequestLorawan(Deveuis string) (int, error) {
 	url := os.Getenv("LORAWAN_URL")
 	req, _ := http.NewRequest("POST", url, bytes.NewBuffer([]byte(Deveuis)))
@@ -167,6 +180,7 @@ func MakeRequestLorawan(Deveuis string) (int, error) {
 	return resp.StatusCode, err
 }
 
+// Logic behind seeding devices
 func worker(id string, ch chan RespDeveuis, db db.DataBase, wg *sync.WaitGroup) {
 	var response RespDeveuis
 	status, _ := db.GetDeviceStatus(id)
@@ -200,13 +214,7 @@ func worker(id string, ch chan RespDeveuis, db db.DataBase, wg *sync.WaitGroup) 
 	wg.Done()
 }
 
-const (
-	letterIdxBits = 6                    // 6 bits to represent a letter index
-	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
-	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
-	letterBytes   = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-)
-
+// Makes Random 10 length strings
 func RandStringBytesMaskImprSrcUnsafe(n int) string {
 	b := make([]byte, n)
 	var src = rand.NewSource(time.Now().UnixNano())

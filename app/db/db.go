@@ -23,6 +23,7 @@ type User struct {
 	Password string `json:"password"`
 }
 
+// Makes a connection to the DB
 func ConnectDb() (DataBase, error) {
 	db := DataBase{}
 	var err error
@@ -46,6 +47,7 @@ func ConnectDb() (DataBase, error) {
 	return db, nil
 }
 
+// Add New Device to the DB
 func (db DataBase) AddNewDevice(DevEUII string, status bool) error {
 	_, err := db.Conn.Exec("INSERT INTO registered (dev_eui,status) VALUES ($1,$2)", DevEUII, status)
 	if err != nil {
@@ -54,6 +56,7 @@ func (db DataBase) AddNewDevice(DevEUII string, status bool) error {
 	return nil
 }
 
+// Adds idempotency key  to DB
 func (db DataBase) AddKey(key string) error {
 	_, err := db.Conn.Exec("INSERT INTO idempotency (key) VALUES ($1)", key)
 	if err != nil {
@@ -62,6 +65,7 @@ func (db DataBase) AddKey(key string) error {
 	return nil
 }
 
+// Gets idempotency key  stored in DB
 func (db DataBase) GetKey(key string) (bool, error) {
 	var status bool
 	err := db.Conn.QueryRow("SELECT key FROM idempotency WHERE key=$1", key).Scan(&status)
@@ -72,6 +76,7 @@ func (db DataBase) GetKey(key string) (bool, error) {
 
 }
 
+// Gets Status fo Device
 func (db DataBase) GetDeviceStatus(DevEUII string) (bool, error) {
 	var status bool
 	err := db.Conn.QueryRow("SELECT status FROM registered WHERE dev_eui=$1", DevEUII).Scan(&status)
@@ -81,6 +86,7 @@ func (db DataBase) GetDeviceStatus(DevEUII string) (bool, error) {
 	return status, err
 }
 
+// Updates the Status of a Device
 func (db DataBase) UpdateDevicesStatus(DevEUI string, status bool) error {
 	_, err := db.Conn.Exec("UPDATE registered SET status=$1 WHERE dev_eui=$2", status, DevEUI)
 	if err != nil {
