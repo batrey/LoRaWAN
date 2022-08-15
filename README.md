@@ -1,4 +1,5 @@
 Setup:
+
 docker-compose up
 
 make migrateup
