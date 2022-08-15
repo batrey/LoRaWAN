@@ -14,7 +14,7 @@ type DataBase struct {
 }
 
 type Deveuis struct {
-	Id         string `json:"Deveuis"`
+	Id         string `json:"deveuis"`
 	Registered bool   `json:"registered"`
 }
 
@@ -26,7 +26,13 @@ type User struct {
 func ConnectDb() (DataBase, error) {
 	db := DataBase{}
 	var err error
-	url := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", os.Getenv("POSTGRES_USER"), os.Getenv("POSTGRES_PASSWORD"), os.Getenv("POSTGRES_HOST"), os.Getenv("POSTGRES_PORT"), os.Getenv("POSTGRES_DB"))
+	url := fmt.Sprintf(
+		"postgres://%s:%s@%s:%s/%s?sslmode=disable",
+		os.Getenv("POSTGRES_USER"),
+		os.Getenv("POSTGRES_PASSWORD"),
+		os.Getenv("POSTGRES_HOST"),
+		os.Getenv("POSTGRES_PORT"),
+		os.Getenv("POSTGRES_DB"))
 	db.Conn, err = sql.Open("postgres", url)
 	if err != nil {
 		log.Fatalf("could not connect to postgres database: %v", err)
@@ -41,7 +47,7 @@ func ConnectDb() (DataBase, error) {
 }
 
 func (db DataBase) AddNewDevice(DevEUII string, status bool) error {
-	_, err := db.Conn.Exec("INSERT INTO registered (deveui,status) VALUES ($1,$2)", DevEUII, status)
+	_, err := db.Conn.Exec("INSERT INTO registered (dev_eui,status) VALUES ($1,$2)", DevEUII, status)
 	if err != nil {
 		return err
 	}
@@ -49,7 +55,7 @@ func (db DataBase) AddNewDevice(DevEUII string, status bool) error {
 }
 
 func (db DataBase) AddKey(key string) error {
-	_, err := db.Conn.Exec("INSERT INTO idempotency (idempotencykey) VALUES ($1)", key)
+	_, err := db.Conn.Exec("INSERT INTO idempotency (key) VALUES ($1)", key)
 	if err != nil {
 		return err
 	}
@@ -57,27 +63,26 @@ func (db DataBase) AddKey(key string) error {
 }
 
 func (db DataBase) GetKey(key string) (bool, error) {
-
-	err := db.Conn.QueryRow("SELECT idempotencykey FROM idempotency WHERE idempotencykey=$1", key).Scan()
+	var status bool
+	err := db.Conn.QueryRow("SELECT key FROM idempotency WHERE key=$1", key).Scan(&status)
 	if err != sql.ErrNoRows {
-		return true, err
+		return status, err
 	}
-	return false, err
+	return status, err
 
 }
 
 func (db DataBase) GetDeviceStatus(DevEUII string) (bool, error) {
 	var status bool
-	err := db.Conn.QueryRow("SELECT status FROM registered WHERE deveui=$1", DevEUII).Scan(&status)
+	err := db.Conn.QueryRow("SELECT status FROM registered WHERE dev_eui=$1", DevEUII).Scan(&status)
 	if err != nil {
 		return status, err
 	}
-	fmt.Println("STATUS HERE", status)
 	return status, err
 }
 
 func (db DataBase) UpdateDevicesStatus(DevEUI string, status bool) error {
-	_, err := db.Conn.Exec("UPDATE registered SET status=$1 WHERE deveui=$2", status, DevEUI)
+	_, err := db.Conn.Exec("UPDATE registered SET status=$1 WHERE dev_eui=$2", status, DevEUI)
 	if err != nil {
 		return err
 	}

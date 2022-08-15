@@ -4,7 +4,7 @@ import (
 	"LoRaWAN/app/db"
 	"bytes"
 	"encoding/json"
-	"log"
+	"fmt"
 	"math/rand"
 	"net/http"
 	"os"
@@ -16,14 +16,16 @@ import (
 )
 
 type Deveuis struct {
-	Deveuis []string `json:"deveuis”`
+	DevEuis []string `json:"deveuis”`
 }
+
 type DeveuisSingle struct {
-	Id         string `json:"Deveuis"`
+	Id         string `json:"deveuis"`
 	Registered bool   `json:"registered"`
 }
+
 type RespDeveuis struct {
-	Ids []DeveuisSingle `json:"Deveuis"`
+	Ids []DeveuisSingle `json:"deveuis"`
 }
 
 func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
@@ -33,14 +35,13 @@ func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 
 		if !ok || len(key[0]) < 1 {
 			w.WriteHeader(http.StatusBadRequest)
-
+			return
 		}
 
 		//check if id is redis key  if not create one
 		keyExist, _ := db.GetKey(key[0])
 		val, _ := GetFromRedis(key[0], client)
 		if val == key[0] || keyExist {
-			w.Header().Set("Content-Type", "application/json")
 			w.Header().Add("Conflict", "Devices already registered")
 			w.WriteHeader(http.StatusConflict)
 			return
@@ -53,11 +54,13 @@ func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 		var dev Deveuis
 		err := decode.Decode(&dev)
 		if err != nil {
-			log.Fatalf("Unable to decode json err:%s", err)
+			fmt.Printf("Unable to decode json err:%s", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
 
 		//check dev is smaller that 100
-		if len(dev.Deveuis) > 100 {
+		if len(dev.DevEuis) > 100 {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -66,7 +69,7 @@ func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 		var wg sync.WaitGroup
 		var response RespDeveuis
 		var tmp RespDeveuis
-		for _, id := range dev.Deveuis {
+		for _, id := range dev.DevEuis {
 			wg.Add(1)
 			go worker(id, ch, db, &wg)
 			wg.Wait()
@@ -77,21 +80,25 @@ func NewDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 
 		err = SetRedis(key[0], response, client)
 		if err != nil {
-			log.Fatalf("Unable to save key to redis err: %s", err)
+			fmt.Printf("Unable to save key to redis err: %s", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
 
 		err = db.AddKey(key[0])
 		if err != nil {
-			log.Fatalf("Unable to add  key to Redis err:%s", err)
+			fmt.Printf("Unable to add  key to Redis err:%s", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
 
-		jsonResp, err := json.Marshal(response)
-		if err != nil {
-			log.Fatalf("Error marshalling json Err:%s", err)
-		}
-		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write(jsonResp)
+		encoder := json.NewEncoder(w)
+		encoder.SetEscapeHTML(false)
+		if err := encoder.Encode(response); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+		}
 	}
 }
 
@@ -119,13 +126,13 @@ func TestDevice(db db.DataBase, client *redis.Client) http.HandlerFunc {
 			response.Ids = append(response.Ids, tmp.Ids...)
 		}
 		close(ch)
-		jsonResp, err := json.Marshal(response)
-		if err != nil {
-			log.Fatalf("Error marshalling json Err:%s", err)
-		}
-		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write(jsonResp)
+		encoder := json.NewEncoder(w)
+		encoder.SetEscapeHTML(false)
+		if err := encoder.Encode(response); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+		}
 	}
 }
 func GetFromRedis(key string, r *redis.Client) (string, error) {
@@ -167,14 +174,14 @@ func worker(id string, ch chan RespDeveuis, db db.DataBase, wg *sync.WaitGroup) 
 		if success == http.StatusOK {
 			err := db.AddNewDevice(id, true)
 			if err != nil {
-				log.Fatalf("Unable to add Devuce to the Database err:%s", err)
+				fmt.Printf("Unable to add Deveuis to the Database err:%s", err)
 			}
 			response.Ids = append(response.Ids, DeveuisSingle{Id: id, Registered: true})
-		} else if success != http.StatusOK {
+		} else {
 			response.Ids = append(response.Ids, DeveuisSingle{Id: id, Registered: false})
 			err := db.AddNewDevice(id, false)
 			if err != nil {
-				log.Fatalf("Unable to add Devuce to the Database err:%s", err)
+				fmt.Printf("Unable to add Deveuis to the Database err:%s", err)
 			}
 		}
 
@@ -183,7 +190,7 @@ func worker(id string, ch chan RespDeveuis, db db.DataBase, wg *sync.WaitGroup) 
 		if success == http.StatusOK {
 			err := db.UpdateDevicesStatus(id, true)
 			if err != nil {
-				log.Fatalf("Unable to add Devuce to the Database err:%s", err)
+				fmt.Printf("Unable to add Devuce to the Database err:%s", err)
 			}
 			response.Ids = append(response.Ids, DeveuisSingle{Id: id, Registered: true})
 		}
