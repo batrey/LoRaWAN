@@ -1,7 +1,11 @@
 Setup:
+
 docker-compose up
+
 make migrateup
+
 cd app
+
 go run main.go
 
 
